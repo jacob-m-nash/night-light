@@ -9,5 +9,5 @@ def calculateSunset(dayOfTheYear, latitude, longitude) :
     sunset = 720 - 4 * (longitude +  math.degrees(hourAngle)) - eqtime
     return sunset
 
-#1st jan london sunset: 16:02
+#1st jan london sunset: 16:02 https://gml.noaa.gov/grad/solcalc/
 print(calculateSunset(1,51.5,-0.13))
