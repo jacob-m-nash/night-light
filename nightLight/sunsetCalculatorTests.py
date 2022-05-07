@@ -1,7 +1,7 @@
 from datetime import datetime
 import unittest
 
-from nightLight import calculateSunset
+from sunsetCalculator import calculateSunset
 
 # expected value can be found here https://gml.noaa.gov/grad/solcalc/ 
 class TestCalculateSunset(unittest.TestCase):

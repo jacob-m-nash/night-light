@@ -1,22 +1,26 @@
-import math
-import datetime
+import numpy as np
+import sunsetCalculator
+def Run():
+    while(True):
+        while(True):
+            latitude = float(input("Input latitude: "))
+            if -90 <= latitude and latitude <= 90:
+                break
+            else:
+                print("Invlad latitude, must be between -90 and 90 degrees. Please try again.")
+        while(True):
+            longitude = float(input("Input longitude: "))
+            if -180 <= longitude and longitude <= 180:
+                break
+            else:
+                print("Invlad longitude, must be between -180 and 180 degrees. Please try again.")
+        
+        sunsets = sunsetCalculator.getYearOfSunsets(latitude,longitude)
+
+    return
 
 
-def calculateSunset(date,latitude,longitude):
-    dayOfTheYear = date.timetuple().tm_yday
-    sunsetTime = calculateSunsetTime(dayOfTheYear,latitude,longitude)
-    test = date.replace(hour= sunsetTime.hour, minute = sunsetTime.minute)
+if __name__ == '__main__':
+    print("Running...")
+    Run()
 
-    return test
-
-
-# Calculates the time of day the sun will set in minutes 
-def calculateSunsetTime(dayOfTheYear, latitude, longitude) : 
-    fractionalYear = (2 * math.pi / 360) * (dayOfTheYear -1)
-    eqtime = 229.18 * (0.000075 + 0.001868 * math.cos(fractionalYear) - 0.032077 * math.sin(fractionalYear) - 0.014615 * math.cos(2 * fractionalYear) - 0.040849 * math.sin(2 * fractionalYear))
-    decl = 0.006918 - 0.399912 * math.cos(fractionalYear) + 0.070257 * math.sin(fractionalYear) - 0.006758 * math.cos(2 * fractionalYear) + 0.000907 * math.sin(2 * fractionalYear) - 0.002697 * math.cos(3 * fractionalYear) + 0.00148 * math.sin(3 * fractionalYear)
-    hourAngle = - math.acos((math.cos(math.radians(90.833)) / (math.cos(math.radians(latitude)) * math.cos(decl))) - (math.tan(math.radians(latitude)) * math.tan(decl)))
-    sunsetTime = 720 - 4 * (longitude +  math.degrees(hourAngle)) - eqtime
-    sunsetHour = round(sunsetTime // 60)
-    sunsetMinute = round(sunsetTime % 60) #todo find out why we are a couple of mins off each time 
-    return datetime.time(sunsetHour,sunsetMinute)
