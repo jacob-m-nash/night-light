@@ -6,18 +6,21 @@
 
  The first step is to calculate the the fractional year (γ) in radians. This is done using the formula:
 
- ![alt text](assets/readme/fractional-year-formula.png "Fractional year formula") \
- *Note: This equation uses 12-hour time. For out use case we can use 12am for the start of the day.* 
+ $\gamma = \frac{2 \pi}{365} * (\mathrm{day\_of\_year} - 1 + \frac{\mathit{hour} - 12}{24})$
 
+ Using the $\gamma$ we can now estimate the equation of time (*eqtime*) in minutes  and solar declination angle (*decl*) in radians using the formulas below:
 
- Using the γ we can now estimate the equation of time (*eqtime*) in minutes  and solar declination angle (*decl*) in radians using the formulas below:
+$\mathit{eqtime} = 229.18 * (0.000075 + 0.001868 \cos(\gamma) – 0.032077 \sin(\gamma) – 0.014615 \cos(2 \gamma)
+– 0.040849 \sin(2 \gamma))$
 
- ![alt text](assets/readme/eqtime-and-decl-formulas.png "eqtime and decl formulas")
+$\mathit{decl} = 0.006918 – 0.399912 \cos(\gamma) + 0.070257 \sin(\gamma) – 0.006758 \cos(2 \gamma) + 0.000907 sin(2 \gamma) – 0.002697 \cos(3 \gamma) + 0.00148 \sin(3 \gamma)$
 
- Finlay we can calculate the hour angle (ha) when the solar zenith is 90.833° and then use all calculations to estimate the sunset time in minutes:
+Finlay we can calculate the hour angle (ha) when the solar zenith is 90.833° and then use all calculations to estimate the sunset time in minutes:
 
- ![alt text](assets/readme/hour-angle-formula.png "eqtime and decl formulas") \
-  *Note: To calculate the sunset hour angle we use the negative vale.* 
+$\mathit{ha} = \pm\arccos\Big\{\frac{\cos(90.833)}{\cos(\mathit{lat}) \cos(\mathit{decl})} - \tan(\mathit{lat}) \tan(\mathit{decl})\Big\}$
 
- ![alt text](assets/readme/sunrise-formula.png "eqtime and decl formulas") \
- *Note: This equation is the same for sunrise and sunset calculations.*
+*Note: To calculate the sunset hour angle we use the negative value.* 
+
+$\mathit{sunrise} = 720 - 4 * (\mathit{longitude} + \mathit{ha}) - \mathit{eqtime}$
+
+*Note: This equation is the same for sunrise and sunset calculations.*
