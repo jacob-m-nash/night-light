@@ -8,6 +8,8 @@ from json import JSONEncoder
 from datetime import datetime,   timedelta
 import pytz
 
+DEFAULTCONFIGFILEPATH = os.path.join(os.getcwd(),"configs","defaultConfig.json" )
+
 class MyEncoder(JSONEncoder):
     def default(self, obj):
         return obj.__dict__   
@@ -29,16 +31,15 @@ class NightLightConfig():
 
 
 def loadConfig():
-    configFileName = "configs/config.json"
-    if not os.path.exists(configFileName):
+    if not os.path.exists(DEFAULTCONFIGFILEPATH):
         print("No config file found.")
         return None
-    with open(configFileName) as inFile:
+    with open(DEFAULTCONFIGFILEPATH) as inFile:
         return NightLightConfig.loadFromJson(json.load(inFile))
 
 
 def saveConfig(config):
-    with open("configs/config.json", "w") as outfile: # TODO remove yucky hard coded file path
+    with open(DEFAULTCONFIGFILEPATH, "w") as outfile:
         outfile.write(MyEncoder().encode(config))
 
 
@@ -79,11 +80,11 @@ def Run():
         # all values are uint16, max value 65535
         WARM_WHITE = [58275, 0, 65535 * config.maxLightBrightness, config.lightTemperature] # TODO why is the hue not max value?
         color = WARM_WHITE
-        for light in config.lights:
-            light.setColor(color,config.transitionDuration)
+        for light in config.lights: # TODO set power then color or color then power?
+            light.set_power("on")
+            light.set_color(color,config.transitionDuration)
 
 if __name__ == '__main__':
-    # lightController.lightController.FindLights()
     print("Running...")
     Run()
 
