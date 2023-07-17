@@ -5,7 +5,8 @@ import math
 import os
 import json
 from json import JSONEncoder
-from datetime import datetime,timezone, timedelta
+from datetime import datetime,   timedelta
+import pytz
 
 class MyEncoder(JSONEncoder):
     def default(self, obj):
@@ -19,7 +20,7 @@ class NightLightConfig():
         self.sunsetOffset = sunsetOffset
         self.maxLightBrightness = maxLightBrightness
         self.lightTemperature = lightTemperature
-        self.transitionDuration = transitionDuration * 1000
+        self.transitionDuration = transitionDuration 
 
 
     @staticmethod
@@ -70,9 +71,9 @@ def Run():
     while(True):
         nextSunset = sunsetCalculator.getNextSunset(config.latitude,config.longitude)
         lightTransitionStartTime = nextSunset -  timedelta(seconds=config.transitionDuration)
-        currentTime = datetime.now(timezone.utc)
+        currentTime = datetime.now(pytz.UTC)
         while(True): # TODO is it better to poll or sleep?
-            if(lightTransitionStartTime < currentTime): # FIXME TypeError: can't compare offset-naive and offset-aware datetimes
+            if(lightTransitionStartTime < currentTime):
                 break
         # color is [Hue, Saturation, Brightness, Kelvin]
         # all values are uint16, max value 65535

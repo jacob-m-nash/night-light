@@ -1,7 +1,7 @@
 import math
 import datetime
 import calendar
-
+import pytz
 
 # Calculates the time of day the sun will set in minutes 
 def calculateSunsetTime(dateTime, latitude, longitude):
@@ -18,10 +18,10 @@ def calculateSunsetTime(dateTime, latitude, longitude):
         print(sunsetHour)
     if(sunsetMinute not in range(0,60)):
         print(sunsetMinute)
-    return dateTime.combine(dateTime,datetime.time(sunsetHour,sunsetMinute))
+    return dateTime.combine(dateTime,datetime.time(sunsetHour,sunsetMinute),pytz.UTC)
 
 def getNextSunset(latitude,longitude):
-    currentDateTime = datetime.datetime.now()
+    currentDateTime = datetime.datetime.now(pytz.UTC)
     sunsetTime = calculateSunsetTime(currentDateTime,latitude,longitude)
     if(sunsetTime > currentDateTime): # if sunset time has not already passed
         return sunsetTime
