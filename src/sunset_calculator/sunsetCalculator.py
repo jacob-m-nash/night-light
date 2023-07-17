@@ -16,12 +16,12 @@ def calculateSunsetTime(dateTime, latitude, longitude):
         print(sunsetHour)
     if(sunsetMinute not in range(0,60)):
         print(sunsetMinute)
-    return datetime.time(sunsetHour,sunsetMinute)
+    return dateTime.combine(dateTime,datetime.time(sunsetHour,sunsetMinute))
 
 def getNextSunset(latitude,longitude):
     currentDateTime = datetime.datetime.now()
     sunsetTime = calculateSunsetTime(currentDateTime,latitude,longitude)
-    if(sunsetTime > currentDateTime.time()): # if sunset time has not already passed
+    if(sunsetTime > currentDateTime): # if sunset time has not already passed
         return sunsetTime
     else:
         tomorrowDateTime = currentDateTime + datetime.timedelta(days=1)
