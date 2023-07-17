@@ -1,11 +1,13 @@
 import math
 import datetime
+import calendar
 
 
 # Calculates the time of day the sun will set in minutes 
 def calculateSunsetTime(dateTime, latitude, longitude):
+    daysOfTheYear = 366 if calendar.isleap(dateTime.year) else 365 # Leap year check
     dayOfTheYear = dateTime.timetuple().tm_yday 
-    fractionalYear = (2 * math.pi / 365) * (dayOfTheYear - 1) #TODO fix if leap year (366 not 365)
+    fractionalYear = (2 * math.pi / daysOfTheYear) * (dayOfTheYear - 1)
     eqtime = 229.18 * (0.000075 + 0.001868 * math.cos(fractionalYear) - 0.032077 * math.sin(fractionalYear) - 0.014615 * math.cos(2 * fractionalYear) - 0.040849 * math.sin(2 * fractionalYear))
     decl = 0.006918 - 0.399912 * math.cos(fractionalYear) + 0.070257 * math.sin(fractionalYear) - 0.006758 * math.cos(2 * fractionalYear) + 0.000907 * math.sin(2 * fractionalYear) - 0.002697 * math.cos(3 * fractionalYear) + 0.00148 * math.sin(3 * fractionalYear)
     hourAngle = - math.acos((math.cos(math.radians(90.833)) / (math.cos(math.radians(latitude)) * math.cos(decl))) - (math.tan(math.radians(latitude)) * math.tan(decl)))
