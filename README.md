@@ -12,14 +12,12 @@
 
 $$ \mathit{eqtime} = 229.18 * (0.000075 + 0.001868 \cos(\gamma) – 0.032077 \sin(\gamma) – 0.014615 \cos(2 \gamma) – 0.040849 \sin(2 \gamma)) $$
 
-$$\mathit{decl} = 0.006918 – 0.399912 \cos(\gamma) + 0.070257 \sin(\gamma) – 0.006758 \cos(2 \gamma) + 0.000907 sin(2 \gamma) – 0.002697 \cos(3 \gamma) + 0.00148 \sin(3 \gamma)$$
+$$ \mathit{decl} = 0.006918 – 0.399912 \cos(\gamma) + 0.070257 \sin(\gamma) – 0.006758 \cos(2 \gamma) \\ + 0.000907 sin(2 \gamma) – 0.002697 \cos(3 \gamma) + 0.00148 \sin(3 \gamma) $$
 
 Finlay we can calculate the hour angle (ha) when the solar zenith is 90.833° and then use all calculations to estimate the sunset time in minutes:
 
 $$\mathit{ha} = \pm\arccos(\frac{\cos(90.833)}{\cos(\mathit{lat}) \cos(\mathit{decl})} - \tan(\mathit{lat}) \tan(\mathit{decl}))$$
 
-*Note: To calculate the sunset hour angle we use the negative value.* 
+*Note: To calculate the sunset hour angle we use the negative hour angle.* 
 
-$$\mathit{sunrise} = 720 - 4 * (\mathit{longitude} + \mathit{ha}) - \mathit{eqtime}$$
-
-*Note: This equation is the same for sunrise and sunset calculations.*
+$$\mathit{sunrise/sunset} = 720 - 4 * (\mathit{longitude} + \mathit{ha}) - \mathit{eqtime}$$
