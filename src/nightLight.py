@@ -9,6 +9,7 @@ from lifxlan import LifxLAN, Light
 from sunset_calculator import sunsetCalculator
 
 DEFAULT_CONFIG_FILEPATH = os.path.join(os.getcwd(),"configs","defaultConfig.json" )
+PIPE_PATH = os.path.join(os.getcwd(),"pipes","pipe") # TODO when setting up write path of pipe to "global" config file 
 
 class NightLightEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -86,11 +87,30 @@ def Run():
         WARM_WHITE = [58275, 0, 65535 * config.maxLightBrightness, config.lightTemperature] # TODO why is the hue not max value?
         color = WARM_WHITE
         for light in config.lights: 
-            light.set_color(color,config.transitionDuration)
+            light.set_color(color,config.transitionDuration,False)
             light.set_power("on")
-            
+
+def waitForCommand():
+        with open(PIPE_PATH, 'r') as pipeInput:
+            input = pipeInput.readline()
+        with open(PIPE_PATH, 'w') as pipeOutput:
+            returnStr = "echo: " + input
+            pipeOutput.write(returnStr)
+
+def Startup():
+    print("Creating pipe")
+    if os.path.isfile(PIPE_PATH): # FIXME this does not work, dont know why its not a file or dir
+        print(f"Pipe: {PIPE_PATH} already exists using old pipe file.")
+        return
+    os.mkfifo(PIPE_PATH)
+    print(f"Pipe file created at {PIPE_PATH}")
+
+    return
+
 
 if __name__ == '__main__':
+    Startup()
+    waitForCommand()
     print("Running...")
     Run()
 
