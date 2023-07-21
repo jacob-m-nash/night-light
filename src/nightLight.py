@@ -1,16 +1,16 @@
-import numpy as np
-from sunset_calculator import sunsetCalculator
-from lifxlan import LifxLAN
+import json
 import math
 import os
-import json
-from json import JSONEncoder
-from datetime import datetime,   timedelta
+from datetime import datetime, timedelta
+
 import pytz
 
-DEFAULTCONFIGFILEPATH = os.path.join(os.getcwd(),"configs","defaultConfig.json" )
+from lifxlan import LifxLAN, Light
+from sunset_calculator import sunsetCalculator
 
-class MyEncoder(JSONEncoder):
+DEFAULT_CONFIG_FILEPATH = os.path.join(os.getcwd(),"configs","defaultConfig.json" )
+
+class NightLightEncoder(json.JSONEncoder):
     def default(self, obj):
         return obj.__dict__   
 
@@ -27,20 +27,24 @@ class NightLightConfig():
 
     @staticmethod
     def loadFromJson(jsonDict):
-        return NightLightConfig(jsonDict["lights"],jsonDict["latitude"],jsonDict["longitude"],jsonDict["sunsetOffset"],jsonDict["maxLightBrightness"],jsonDict["lightTemperature"],jsonDict["transitionDuration"])
+        lights = []
+        for light in jsonDict["lights"]:
+            lights.append(Light(light["mac_addr"],light["ip_addr"],light["service"],light["port"],light["source_id"],light["verbose"]))
+
+        return NightLightConfig(lights,jsonDict["latitude"],jsonDict["longitude"],jsonDict["sunsetOffset"],jsonDict["maxLightBrightness"],jsonDict["lightTemperature"],jsonDict["transitionDuration"])
 
 
 def loadConfig():
-    if not os.path.exists(DEFAULTCONFIGFILEPATH):
+    if not os.path.exists(DEFAULT_CONFIG_FILEPATH):
         print("No config file found.")
         return None
-    with open(DEFAULTCONFIGFILEPATH) as inFile:
+    with open(DEFAULT_CONFIG_FILEPATH) as inFile:
         return NightLightConfig.loadFromJson(json.load(inFile))
 
 
 def saveConfig(config):
-    with open(DEFAULTCONFIGFILEPATH, "w") as outfile:
-        outfile.write(MyEncoder().encode(config))
+    with open(DEFAULT_CONFIG_FILEPATH, "w") as outfile:
+        outfile.write(NightLightEncoder().encode(config))
 
 
 def getSettingInput(settingName,minValue = -math.inf,maxValue = math.inf):
@@ -76,13 +80,15 @@ def Run():
         while(True): # TODO is it better to poll or sleep?
             if(lightTransitionStartTime < currentTime):
                 break
+            currentTime = datetime.now(pytz.UTC)
         # color is [Hue, Saturation, Brightness, Kelvin]
         # all values are uint16, max value 65535
         WARM_WHITE = [58275, 0, 65535 * config.maxLightBrightness, config.lightTemperature] # TODO why is the hue not max value?
         color = WARM_WHITE
-        for light in config.lights: # TODO set power then color or color then power?
-            light.set_power("on")
+        for light in config.lights: 
             light.set_color(color,config.transitionDuration)
+            light.set_power("on")
+            
 
 if __name__ == '__main__':
     print("Running...")
