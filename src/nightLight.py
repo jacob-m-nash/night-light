@@ -11,6 +11,7 @@ from sunset_calculator import sunsetCalculator
 DEFAULT_CONFIG_FILEPATH = os.path.join(os.getcwd(),"configs","defaultConfig.json" )
 PIPE_PATH = os.path.join(os.getcwd(),"pipes","pipe") # TODO when setting up write path of pipe to "global" config file 
 
+# Bulb/light colour example 
 # color is [Hue, Saturation, Brightness, Kelvin]
 # all values are uint16, max value 65535
 WARM_WHITE = [58275, 0, 65535, 3200] # TODO why is the hue not max value?
@@ -92,11 +93,10 @@ def Run():
     while(True):
         nextSunset = sunsetCalculator.getNextSunset(config.latitude,config.longitude)
         lightTransitionStartTime = nextSunset -  timedelta(seconds=config.transitionDuration)
-        currentTime = datetime.now(pytz.UTC)
         while(True): # TODO is it better to poll or sleep?
+            currentTime = datetime.now(pytz.UTC)
             if(lightTransitionStartTime < currentTime):
                 break
-            currentTime = datetime.now(pytz.UTC)
         color = [config.lightHue,config.lightSaturation,config.lightBrightness,config.lightTemperature]
         for light in config.lights: 
             light.set_color(color,config.transitionDuration)
