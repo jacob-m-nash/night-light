@@ -5,13 +5,21 @@ from datetime import datetime, timedelta
 import threading
 import logging
 
+import click
+
 import pytz
 
 from lifxlan import LifxLAN, Light
 import ShellyPy
 from sunset_calculator import sunsetCalculator
 
-from flask import Flask, request
+from flask import Flask, request, jsonify
+
+class RemoveColorFilter(logging.Filter):
+    def filter(self, record):
+        if record and record.msg and isinstance(record.msg, str):
+            record.msg = click.unstyle(record.msg) 
+        return True
 
 app = Flask(__name__)
 MAINTHREAD = None
@@ -93,6 +101,14 @@ def Run():
         for switch in config.switches:
             switch.relay(0, turn=True)
 
+@app.route("/turnOff")
+def turnOff():
+    config = loadConfig()
+    for light in config.lights: 
+            light.set_power("off")
+    for switch in config.switches:
+        switch.relay(0, turn=False)
+
 @app.route("/stop")
 def stop():
     RUNNING = False
@@ -130,6 +146,8 @@ def startup():
     print(log_file)
     open(log_file, 'a').close()
     logging.basicConfig(filename=log_file, level=logging.ERROR)
+    remove_color_filter = RemoveColorFilter()
+    logging.getLogger("werkzeug").addFilter(remove_color_filter)
     return
 
 @app.route("/update-settings")
@@ -140,9 +158,8 @@ def updateConfig():
 
 @app.route("/getNextSunset")
 def getNextSunset():
-    test = sunsetCalculator.getNextSunset(50.0,0.0)
-    print(type(test))
-    return sunsetCalculator.getNextSunset(50,0).strftime(" %H:%M:%S, %d/%m/%Y")
+    test = sunsetCalculator.getNextSunset(50.0,0.0) #TODO Remove tests once default config has been created and server can run
+    return jsonify(sunsetCalculator.getNextSunset(50,0).strftime(" %H:%M:%S, %d/%m/%Y"))
     #return NEXTSUNSET #TODO: Maybe some nice ascii art with a timeline
 
 
