@@ -2,28 +2,42 @@ import json
 import math
 import os
 from datetime import datetime, timedelta
+import threading
+import logging
 
 import pytz
 
 from lifxlan import LifxLAN, Light
+import ShellyPy
 from sunset_calculator import sunsetCalculator
 
-DEFAULT_CONFIG_FILEPATH = os.path.join(os.getcwd(),"configs","defaultConfig.json" )
-PIPE_PATH = os.path.join(os.getcwd(),"pipes","pipe") # TODO when setting up write path of pipe to "global" config file 
+from flask import Flask, request
+
+app = Flask(__name__)
+MAINTHREAD = None
+RUNNING = False
+
+DEFAULT_CONFIG_FILEPATH = os.path.join("../configs","default.json")
+DEFAULT_LOG_FILEPATH = os.path.join(os.getcwd(), "../logs")
 
 # Bulb/light colour example 
 # color is [Hue, Saturation, Brightness, Kelvin]
 # all values are uint16, max value 65535
 WARM_WHITE = [58275, 0, 65535, 3200] # TODO why is the hue not max value?
 
+NEXTSUNSET = None
+
 class NightLightEncoder(json.JSONEncoder):
     def default(self, obj):
         return obj.__dict__   
 
 class NightLightConfig():
-    def __init__(self,lights,latitude,longitude,sunsetOffset,lightHue,lightSaturation,lightBrightness,lightTemperature,transitionDuration):
+    def __init__(self,lights,plugs,latitude,longitude,sunsetOffset,lightHue,lightSaturation,lightBrightness,lightTemperature,transitionDuration):
         # list of connected lights
         self.lights = lights
+
+        # list of switches
+        self.plugs = plugs
 
         # sunset settings
         self.latitude = latitude
@@ -36,16 +50,6 @@ class NightLightConfig():
         self.lightBrightness = lightBrightness
         self.lightTemperature = lightTemperature
         self.transitionDuration = transitionDuration 
-       
-
-    @staticmethod
-    def loadFromJson(jsonDict):
-        lights = []
-        for light in jsonDict["lights"]:
-            lights.append(Light(light["mac_addr"],light["ip_addr"],light["service"],light["port"],light["source_id"],light["verbose"]))
-
-        return NightLightConfig(lights,jsonDict["latitude"],jsonDict["longitude"],jsonDict["sunsetOffset"],jsonDict["lightHue"],jsonDict["lightSaturation"],jsonDict["lightBrightness"],jsonDict["lightTemperature"],jsonDict["transitionDuration"])
-
 
 def loadConfig():
     if not os.path.exists(DEFAULT_CONFIG_FILEPATH):
@@ -53,24 +57,11 @@ def loadConfig():
         return None
     with open(DEFAULT_CONFIG_FILEPATH) as inFile:
         return NightLightConfig.loadFromJson(json.load(inFile))
-
-
-def saveConfig(config):
-    with open(DEFAULT_CONFIG_FILEPATH, "w") as outfile:
-        outfile.write(NightLightEncoder().encode(config))
-
-
-def getSettingInput(settingName,minValue = -math.inf,maxValue = math.inf):
-    while(True):
-        settingValue = float(input(f"{settingName}: "))
-        if( minValue <= settingValue <= maxValue ):
-            return settingValue
-        else:
-            print(f"Invalid {settingName}, value must be in range {minValue} - {maxValue}")
-
+       
 
 def getUserConfig():
-    lightCount = getSettingInput("Number of lights",0) 
+    lightCount = getSettingInput("Number of lights",0)
+    plugCount =  getSettingInput("Number of plugs",0)
     lifx = LifxLAN(lightCount)       
     latitude = getSettingInput("Latitude", -90, 90)
     longitude = getSettingInput("Longitude", -180, 180)
@@ -82,18 +73,16 @@ def getUserConfig():
     return NightLightConfig(lifx.get_lights(),latitude,longitude,sunsetOffset,lightBrightness,lightTemperature,transitionDuration)
 
 def Shutdown():
-    os.remove(PIPE_PATH)
     exit()
 
 def Run():
     config = loadConfig()
     if(config == None):
-        config = getUserConfig()
-        saveConfig(config)
+        return "No configuration found, unable to run night-light."
     while(True):
-        nextSunset = sunsetCalculator.getNextSunset(config.latitude,config.longitude)
-        lightTransitionStartTime = nextSunset -  timedelta(seconds=config.transitionDuration)
-        while(True): # TODO is it better to poll or sleep?
+        NEXTSUNSET = sunsetCalculator.getNextSunset(config.latitude,config.longitude)
+        lightTransitionStartTime = NEXTSUNSET -  timedelta(seconds=config.transitionDuration)
+        while(True or RUNNING): # TODO is it better to poll or sleep?
             currentTime = datetime.now(pytz.UTC)
             if(lightTransitionStartTime < currentTime):
                 break
@@ -101,36 +90,65 @@ def Run():
         for light in config.lights: 
             light.set_color(color,config.transitionDuration)
             light.set_power("on")
+        for switch in config.switches:
+            switch.relay(0, turn=True)
 
-def waitForCommand():
-    while True:
-        with open(PIPE_PATH, 'r') as pipeInput:
-            input = pipeInput.readline()
-        reply = parseCommand(input)
-        if reply is None:
-            continue
-        with open(PIPE_PATH, 'w') as pipeOutput:
-            pipeOutput.write(reply)
+@app.route("/stop")
+def stop():
+    RUNNING = False
+    if not MAINTHREAD.is_alive():
+        return True
+    else:
+        return False
 
-def parseCommand(command,args):
-    input = str.lower(command)
-    if input == "shutdown":
-        Shutdown() 
+@app.route("/stop")
+def start():
+    MAINTHREAD.start()
+    if  MAINTHREAD.is_alive():
+        RUNNING = True
+        return True
+    else:
+        return False
 
-def Startup():
-    print("Creating pipe")
-    if os.path.isfile(PIPE_PATH): # FIXME this does not work, dont know why its not a file or dir
-        print(f"Pipe: {PIPE_PATH} already exists using old pipe file.")
-        return
-    os.mkfifo(PIPE_PATH)
-    print(f"Pipe file created at {PIPE_PATH}")
 
+@app.route("/restart")
+def restart():
+    res = stop()
+    if not res:
+        return "Failed to stop night-light."
+    res = start()
+    if not res:
+        return "Failed to start night-light."
+    return "night-light restarted successfully."
+
+
+def startup():
+    print(DEFAULT_LOG_FILEPATH)
+    if not  os.path.exists(DEFAULT_LOG_FILEPATH):
+        os.mkdir(DEFAULT_LOG_FILEPATH)
+    log_file = os.path.join(DEFAULT_LOG_FILEPATH,"night-light.log")
+    print(log_file)
+    open(log_file, 'a').close()
+    logging.basicConfig(filename=log_file, level=logging.ERROR)
     return
+
+@app.route("/update-settings")
+def updateConfig():
+    setting = request.args.get('setting')
+    value = request.args.get("value")
+    CONFIG[setting] = value
+
+@app.route("/getNextSunset")
+def getNextSunset():
+    test = sunsetCalculator.getNextSunset(50,0)
+    print(test)
+    return sunsetCalculator.getNextSunset(50,0)
+    #return NEXTSUNSET #TODO: Maybe some nice ascii art with a timeline
+
 
 
 if __name__ == '__main__':
-    Startup()
-    waitForCommand()
-    print("Running...")
-    Run()
-
+    MAINTHREAD = threading.Thread(target=Run)
+    startup()
+    MAINTHREAD.start()
+    app.run(host="0.0.0.0")
