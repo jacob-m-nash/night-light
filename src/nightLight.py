@@ -140,9 +140,9 @@ def updateConfig():
 
 @app.route("/getNextSunset")
 def getNextSunset():
-    test = sunsetCalculator.getNextSunset(50,0)
-    print(test)
-    return sunsetCalculator.getNextSunset(50,0)
+    test = sunsetCalculator.getNextSunset(50.0,0.0)
+    print(type(test))
+    return sunsetCalculator.getNextSunset(50,0).strftime(" %H:%M:%S, %d/%m/%Y")
     #return NEXTSUNSET #TODO: Maybe some nice ascii art with a timeline
 
 
