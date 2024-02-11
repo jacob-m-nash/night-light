@@ -5,10 +5,10 @@ import ShellyPy
 
 WARM_WHITE = [58275, 0, 65535, 3200]
 class NightLightConfig():
-    def __init__(self,lights: list = [],switches: list = [],latitude: float = 51.5072,longitude: float = 0.1276,sunsetOffset: int = 10,lightHue: int = 58275,lightSaturation: int = 0,lightBrightness: int = 65535,lightTemperature: int = 3200,transitionDuration: int = 120) -> None:
+    def __init__(self,lights: list = [],plugs: list = [],latitude: float = 51.5072,longitude: float = 0.1276,sunsetOffset: int = 10,lightHue: int = 58275,lightSaturation: int = 0,lightBrightness: int = 65535,lightTemperature: int = 3200,transitionDuration: int = 120) -> None:
         # list of connected lights
         self.lights = lights
-        self.switches = switches
+        self.plugs = plugs
 
         # sunset settings
         self.latitude = latitude
@@ -40,13 +40,13 @@ class NightLightConfig():
     @staticmethod
     def loadFromJson(jsonDict):
         lights = []
-        switches = []
+        plugs = []
         for light in jsonDict["lights"]:
             lights.append(Light(light["mac_addr"],light["ip_addr"],light["service"],light["port"],light["source_id"],light["verbose"]))
-        for switchAddress in jsonDict["switches"]:
-             switches.append(ShellyPy.Shelly(switchAddress))
+        for plugAddress in jsonDict["plugs"]:
+             plugs.append(ShellyPy.Shelly(plugAddress))
 
-        return NightLightConfig(lights,switches,jsonDict["latitude"],jsonDict["longitude"],jsonDict["sunsetOffset"],jsonDict["lightHue"],jsonDict["lightSaturation"],jsonDict["lightBrightness"],jsonDict["lightTemperature"],jsonDict["transitionDuration"])
+        return NightLightConfig(lights,plugs,jsonDict["latitude"],jsonDict["longitude"],jsonDict["sunsetOffset"],jsonDict["lightHue"],jsonDict["lightSaturation"],jsonDict["lightBrightness"],jsonDict["lightTemperature"],jsonDict["transitionDuration"])
 
 class NightLightConfigEncoder(json.JSONEncoder):
     def default(self, o):

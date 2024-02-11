@@ -42,8 +42,8 @@ def run():
         for light in CONFIG.lights: 
             light.set_color(color,CONFIG.transitionDuration)
             light.set_power("on")
-        for switch in CONFIG.switches:
-            switch.relay(0, turn=True)
+        for plug in CONFIG.plugs:
+            plug.relay(0, turn=True)
 
 
 app = Flask(__name__)
@@ -62,8 +62,8 @@ def shutdown():
 def turnOff():
     for light in CONFIG.lights: 
             light.set_power("off")
-    for switch in CONFIG.switches:
-        switch.relay(0, turn=False)
+    for plug in CONFIG.plugs:
+        plug.relay(0, turn=False)
 
 @app.route("/stop")
 def stop():
