@@ -16,11 +16,12 @@ def calculateSunsetTime(dateTime, latitude, longitude):
     sunsetMinute = round(sunsetTime % 60) 
     return dateTime.combine(dateTime,time(sunsetHour,sunsetMinute,00),pytz.UTC)
 
-def getNextSunset(latitude,longitude):
+def getNextSunset(latitude,longitude,tomorrow: bool = False):
     currentDateTime = datetime.now(pytz.UTC)
     sunsetTime = calculateSunsetTime(currentDateTime,latitude,longitude)
-    if(sunsetTime > currentDateTime): # if sunset time has not already passed
-        return sunsetTime
-    else:
+    if(sunsetTime < currentDateTime or tomorrow): # if sunset time has not already passed
         tomorrowDateTime = currentDateTime + timedelta(days=1)
         return calculateSunsetTime(tomorrowDateTime,latitude,longitude)
+    else:
+        return sunsetTime
+        
