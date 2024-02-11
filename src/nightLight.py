@@ -1,5 +1,4 @@
 import json
-import math
 import os
 from time import sleep
 from datetime import datetime, timedelta
@@ -18,7 +17,7 @@ import ShellyPy
 from sunset_calculator import sunsetCalculator
 from nightLightConfig import NightLightConfig
 
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, abort
 
 class RemoveColorFilter(logging.Filter):
     def filter(self, record):
@@ -30,9 +29,9 @@ def run():
     global CONFIG
     if(CONFIG == None):
         return "No configuration found, unable to run night-light."
+    NEXT_SUNSET = sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude)
     while(True):
-        NEXT_SUNSET = sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude)
-        lightTransitionStartTime = NEXT_SUNSET -  timedelta(seconds=CONFIG.transitionDuration)
+        lightTransitionStartTime = NEXT_SUNSET -  timedelta(seconds=CONFIG.transitionDuration) - timedelta(minutes=CONFIG.sunsetOffset)
         while(True or RUNNING): # TODO is it better to poll or sleep?
             currentTime = datetime.now(pytz.UTC)
             if(lightTransitionStartTime < currentTime):
@@ -44,6 +43,7 @@ def run():
             light.set_power("on")
         for plug in CONFIG.plugs:
             plug.relay(0, turn=True)
+        NEXT_SUNSET = sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude, tomorrow=True)
 
 
 app = Flask(__name__)
@@ -93,6 +93,21 @@ def restart():
     if not res:
         return "Failed to start night-light."
     return "night-light restarted successfully."
+
+@app.route("/add")
+def add():
+    device = request.args.get('device')
+    if device == "plug":
+        ipAddress = request.args.get('ipAddress')
+        try:
+            plug = ShellyPy.Shelly(ipAddress)
+            CONFIG.plugs.append(plug)
+            CONFIG.save(Path(os.getcwd())/ app.config["nightLightConfig"]) #TODO have config have its own file name attribute
+            return("Plug {ipAddress} added")
+        except Exception:
+            return("oh no") #TODO better error handling
+        
+        
 
 
 def startup():
