@@ -3,19 +3,30 @@ import requests
 
 def parseArgs(args):
     command = args[0].lower()
-    if command == "getnextsunset":
-        getNextSunset()
+    if command == "get":
+        get(args[1:])
     if command == "turnoff":
-        turnOff
+        turnOff()
+    if command == "add":
+        add(args[1:])
+
     
-def getNextSunset():
-    r = requests.get("http://127.0.0.1:5000/getNextSunset")
+def get(args):
+    param = args[0].lower()
+    r = requests.get(f"http://127.0.0.1:5000/get?param={param}")
     time = r.json()
     print(f"Next sunset: {time}")
 
 def turnOff():
     r = requests.get("http://127.0.0.1:5000/turnOff")
     print(r.json())
+
+def add (args):
+    device = args[0].lower()
+    if device == "plug":
+        ip = args[1]
+        r = requests.get(f"http://127.0.0.1:5000/add?device=plug&ipAddress={ip}")
+        print(r.json())
 
 # def getUserConfig():
 #     lightCount = getSettingInput("Number of lights",0)

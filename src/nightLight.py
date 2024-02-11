@@ -152,12 +152,11 @@ def updateConfig():
     value = request.args.get("value")
     CONFIG[setting] = value
 
-@app.route("/getNextSunset")
-def getNextSunset():
-    test = sunsetCalculator.getNextSunset(CONFIG.latitude,longitude=CONFIG.longitude) #TODO Remove tests once default config has been created and server can run
-    return jsonify(sunsetCalculator.getNextSunset(50,0).strftime("%H:%M:%S"))
-    #return NEXTSUNSET #TODO: Maybe some nice ascii art with a timeline
-
+@app.route("/get")
+def get():
+    param = request.args.get('param')
+    if param == "nextsunset":
+        return jsonify(sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude).strftime("%H:%M:%S"))
 
 
 if __name__ == '__main__':    
