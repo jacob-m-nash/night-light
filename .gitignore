@@ -1,5 +1,6 @@
 .vscode/*
 *.pyc 
 src/lifxlan/
-configs/*
 logs/*
+configs/*
+!configs/defaultAppConfig.json

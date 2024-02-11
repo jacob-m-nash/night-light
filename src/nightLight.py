@@ -1,17 +1,22 @@
 import json
 import math
 import os
+from time import sleep
 from datetime import datetime, timedelta
-import threading
+from threading import Thread
 import logging
+from pathlib import Path
+from nightLightAppConfig import NightLightAppConfig
+from nightLightConfig import NightLightConfig
 
 import click
 
 import pytz
 
-from lifxlan import LifxLAN, Light
+from lifxlan import LifxLAN
 import ShellyPy
 from sunset_calculator import sunsetCalculator
+from nightLightConfig import NightLightConfig
 
 from flask import Flask, request, jsonify
 
@@ -21,106 +26,58 @@ class RemoveColorFilter(logging.Filter):
             record.msg = click.unstyle(record.msg) 
         return True
 
-app = Flask(__name__)
-MAINTHREAD = None
-RUNNING = False
-
-DEFAULT_CONFIG_FILEPATH = os.path.join("../configs","default.json")
-DEFAULT_LOG_FILEPATH = os.path.join(os.getcwd(), "../logs")
-
-# Bulb/light colour example 
-# color is [Hue, Saturation, Brightness, Kelvin]
-# all values are uint16, max value 65535
-WARM_WHITE = [58275, 0, 65535, 3200] # TODO why is the hue not max value?
-
-NEXTSUNSET = None
-
-class NightLightEncoder(json.JSONEncoder):
-    def default(self, obj):
-        return obj.__dict__   
-
-class NightLightConfig():
-    def __init__(self,lights,plugs,latitude,longitude,sunsetOffset,lightHue,lightSaturation,lightBrightness,lightTemperature,transitionDuration):
-        # list of connected lights
-        self.lights = lights
-
-        # list of switches
-        self.plugs = plugs
-
-        # sunset settings
-        self.latitude = latitude
-        self.longitude = longitude
-        self.sunsetOffset = sunsetOffset
-        
-        # light/bulb settings
-        self.lightHue = lightHue
-        self.lightSaturation = lightSaturation
-        self.lightBrightness = lightBrightness
-        self.lightTemperature = lightTemperature
-        self.transitionDuration = transitionDuration 
-
-def loadConfig():
-    if not os.path.exists(DEFAULT_CONFIG_FILEPATH):
-        print("No config file found.")
-        return None
-    with open(DEFAULT_CONFIG_FILEPATH) as inFile:
-        return NightLightConfig.loadFromJson(json.load(inFile))
-       
-
-def getUserConfig():
-    lightCount = getSettingInput("Number of lights",0)
-    plugCount =  getSettingInput("Number of plugs",0)
-    lifx = LifxLAN(lightCount)       
-    latitude = getSettingInput("Latitude", -90, 90)
-    longitude = getSettingInput("Longitude", -180, 180)
-    sunsetOffset = getSettingInput("Sunset Offset (mins)", 0, 720) # 720 mins = 12 hours
-    lightBrightness = getSettingInput("Max Brightness Setting", 0, 1)
-    lightTemperature = getSettingInput("Light Temperature (Kelvin)", 2500, 9000)
-    transitionDuration = getSettingInput("Transition Duration (sec)", 0,3600) # 3600 secs = 1 hour
-                
-    return NightLightConfig(lifx.get_lights(),latitude,longitude,sunsetOffset,lightBrightness,lightTemperature,transitionDuration)
-
-def Shutdown():
-    exit()
-
-def Run():
-    config = loadConfig()
-    if(config == None):
+def run():
+    global CONFIG
+    if(CONFIG == None):
         return "No configuration found, unable to run night-light."
     while(True):
-        NEXTSUNSET = sunsetCalculator.getNextSunset(config.latitude,config.longitude)
-        lightTransitionStartTime = NEXTSUNSET -  timedelta(seconds=config.transitionDuration)
+        NEXT_SUNSET = sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude)
+        lightTransitionStartTime = NEXT_SUNSET -  timedelta(seconds=CONFIG.transitionDuration)
         while(True or RUNNING): # TODO is it better to poll or sleep?
             currentTime = datetime.now(pytz.UTC)
             if(lightTransitionStartTime < currentTime):
                 break
-        color = [config.lightHue,config.lightSaturation,config.lightBrightness,config.lightTemperature]
-        for light in config.lights: 
-            light.set_color(color,config.transitionDuration)
+            sleep(1)
+        color = [CONFIG.lightHue,CONFIG.lightSaturation,CONFIG.lightBrightness,CONFIG.lightTemperature]
+        for light in CONFIG.lights: 
+            light.set_color(color,CONFIG.transitionDuration)
             light.set_power("on")
-        for switch in config.switches:
+        for switch in CONFIG.switches:
             switch.relay(0, turn=True)
+
+
+app = Flask(__name__)
+APP_CONFIG_PATH = Path(os.getcwd()) / "configs" /  "defaultAppConfig.json"
+CONFIG: NightLightConfig = None
+MAIN_THREAD = Thread(target=run)
+
+RUNNING = True
+NEXT_SUNSET = None
+
+
+def shutdown():
+    exit()
 
 @app.route("/turnOff")
 def turnOff():
-    config = loadConfig()
-    for light in config.lights: 
+    for light in CONFIG.lights: 
             light.set_power("off")
-    for switch in config.switches:
+    for switch in CONFIG.switches:
         switch.relay(0, turn=False)
 
 @app.route("/stop")
 def stop():
-    RUNNING = False
-    if not MAINTHREAD.is_alive():
+    if not MAIN_THREAD.is_alive():
+        MAIN_THREAD._stop_event.set() # TODO this may be dangerous to abruptly stop the thread (could make own thread class)
+        RUNNING = False
         return True
     else:
         return False
 
 @app.route("/stop")
 def start():
-    MAINTHREAD.start()
-    if  MAINTHREAD.is_alive():
+    MAIN_THREAD.start()
+    if  MAIN_THREAD.is_alive():
         RUNNING = True
         return True
     else:
@@ -139,16 +96,40 @@ def restart():
 
 
 def startup():
-    print(DEFAULT_LOG_FILEPATH)
-    if not  os.path.exists(DEFAULT_LOG_FILEPATH):
-        os.mkdir(DEFAULT_LOG_FILEPATH)
-    log_file = os.path.join(DEFAULT_LOG_FILEPATH,"night-light.log")
-    print(log_file)
-    open(log_file, 'a').close()
-    logging.basicConfig(filename=log_file, level=logging.ERROR)
+    loadAppConfigs()
+    createLogger()
+    loadNightLightConfig()
+    return
+
+def loadAppConfigs():
+    if not APP_CONFIG_PATH.exists():
+            NightLightAppConfig.GenerateDefaultConfig(APP_CONFIG_PATH)
+    appConfig = json.loads(APP_CONFIG_PATH.read_bytes())
+    for key in appConfig:
+        app.config[key] = appConfig[key]
+
+
+def createLogger():
+    logFile = Path(os.getcwd()) / app.config["nightLightLogs"]
+    if not logFile.exists():
+        os.mkdir(logFile.parent)
+        open(logFile, 'a').close()
+    logging.basicConfig(filename=logFile, level=logging.ERROR)
     remove_color_filter = RemoveColorFilter()
     logging.getLogger("werkzeug").addFilter(remove_color_filter)
     return
+
+def loadNightLightConfig():
+    global CONFIG
+    configPath = Path(os.getcwd())/ app.config["nightLightConfig"]
+    # if path
+    if not configPath.exists():
+        print("no nightlight config found creating default one ") # TODO make log
+        CONFIG = NightLightConfig()
+        CONFIG.save(configPath)
+        return
+    CONFIG = NightLightConfig.load(configPath)
+    
 
 @app.route("/update-settings")
 def updateConfig():
@@ -158,14 +139,16 @@ def updateConfig():
 
 @app.route("/getNextSunset")
 def getNextSunset():
-    test = sunsetCalculator.getNextSunset(50.0,0.0) #TODO Remove tests once default config has been created and server can run
-    return jsonify(sunsetCalculator.getNextSunset(50,0).strftime(" %H:%M:%S, %d/%m/%Y"))
+    test = sunsetCalculator.getNextSunset(CONFIG.latitude,longitude=CONFIG.longitude) #TODO Remove tests once default config has been created and server can run
+    return jsonify(sunsetCalculator.getNextSunset(50,0).strftime("%H:%M:%S"))
     #return NEXTSUNSET #TODO: Maybe some nice ascii art with a timeline
 
 
 
-if __name__ == '__main__':
-    MAINTHREAD = threading.Thread(target=Run)
+if __name__ == '__main__':    
     startup()
-    MAINTHREAD.start()
+    MAIN_THREAD.start()
     app.run(host="0.0.0.0")
+
+# Notes
+
