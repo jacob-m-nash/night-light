@@ -43,8 +43,8 @@ class NightLightConfig():
         plugs = []
         for light in jsonDict["lights"]:
             lights.append(Light(light["mac_addr"],light["ip_addr"],light["service"],light["port"],light["source_id"],light["verbose"]))
-        for plugAddress in jsonDict["plugs"]:
-             plugs.append(ShellyPy.Shelly(plugAddress))
+        for data in jsonDict["plugs"]:
+            plugs.append(ShellyPy.Shelly(data["_instance"]["__ip__"])) #TODO there must be a cleaner way to do this
 
         return NightLightConfig(lights,plugs,jsonDict["latitude"],jsonDict["longitude"],jsonDict["sunsetOffset"],jsonDict["lightHue"],jsonDict["lightSaturation"],jsonDict["lightBrightness"],jsonDict["lightTemperature"],jsonDict["transitionDuration"])
 
