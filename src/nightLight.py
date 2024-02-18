@@ -4,6 +4,7 @@ from time import sleep
 from datetime import datetime, timedelta
 from threading import Thread
 import logging
+from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from nightLightAppConfig import NightLightAppConfig
 from nightLightConfig import NightLightConfig
@@ -12,7 +13,6 @@ import click
 
 import pytz
 
-from lifxlan import LifxLAN
 import ShellyPy
 from sunset_calculator import sunsetCalculator
 from nightLightConfig import NightLightConfig
@@ -25,11 +25,40 @@ class RemoveColorFilter(logging.Filter):
             record.msg = click.unstyle(record.msg) 
         return True
 
+# TODO make to own module
+def setupLogging():
+    logPath = Path(os.getcwd()) / "logs"
+    if not logPath.exists():
+        os.mkdir(logPath)
+
+    logger = logging.getLogger('nightLight.app') 
+    logger.addFilter(RemoveColorFilter())
+    logger.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(levelname)s - %(message)s')
+
+    # Show info to console
+    consoleHandler = logging.StreamHandler()
+    consoleHandler.setLevel(logging.INFO)
+    consoleHandler.setFormatter(formatter)
+    logger.addHandler(consoleHandler)
+
+    # Log everything but DEBUG to file 
+    fileHandler = TimedRotatingFileHandler('logs/app_info.log', when='midnight', interval=1, backupCount=7)
+    fileHandler.setLevel(logging.INFO)
+    fileHandler.setFormatter(formatter)
+    logger.addHandler(fileHandler)
+
+    logger.info("Finished setting up logger.")
+
+    return logger
+
 def run():
     global CONFIG
     if(CONFIG == None):
-        return "No configuration found, unable to run night-light."
+        logger.error("No configuration found, unable to run night-light.")
+        return "No configuration found, unable to run night-light." # TODO what to do here?
     NEXT_SUNSET = sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude)
+    logger.info(f"Next sunset: {NEXT_SUNSET}") # TODO use custom LoggerAdapter for sunset times  
     while(True):
         lightTransitionStartTime = NEXT_SUNSET -  timedelta(seconds=CONFIG.transitionDuration) - timedelta(minutes=CONFIG.sunsetOffset)
         while(True or RUNNING): # TODO is it better to poll or sleep?
@@ -38,16 +67,20 @@ def run():
                 break
             sleep(1)
         color = [CONFIG.lightHue,CONFIG.lightSaturation,CONFIG.lightBrightness,CONFIG.lightTemperature]
+        logger.debug("Turning on lights.")
         for light in CONFIG.lights: 
             light.set_color(color,CONFIG.transitionDuration)
             light.set_power("on")
+        logger.debug("Turning on plugs.")
         for plug in CONFIG.plugs:
             plug.relay(0, turn=True)
         NEXT_SUNSET = sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude, tomorrow=True)
+        logger.info(f"Next sunset: {NEXT_SUNSET}") # TODO use custom LoggerAdapter for sunset times  
 
 
 app = Flask(__name__)
-APP_CONFIG_PATH = Path(os.getcwd()) / "configs" /  "defaultAppConfig.json"
+logger = setupLogging()
+APP_CONFIG_FILE = Path(os.getcwd()) / "configs" /  "defaultAppConfig.json"
 CONFIG: NightLightConfig = None
 MAIN_THREAD = Thread(target=run)
 
@@ -104,7 +137,8 @@ def add():
             CONFIG.plugs.append(plug)
             CONFIG.save(Path(os.getcwd())/ app.config["nightLightConfig"]) #TODO have config have its own file name attribute
             return("Plug {ipAddress} added")
-        except Exception:
+        except Exception as e:
+            logger.exception('Failed to add device.')
             return("oh no") #TODO better error handling
         
         
@@ -112,38 +146,30 @@ def add():
 
 def startup():
     loadAppConfigs()
-    createLogger()
     loadNightLightConfig()
     return
 
 def loadAppConfigs():
-    if not APP_CONFIG_PATH.exists():
-            NightLightAppConfig.GenerateDefaultConfig(APP_CONFIG_PATH)
-    appConfig = json.loads(APP_CONFIG_PATH.read_bytes())
+    if not APP_CONFIG_FILE.exists():
+            NightLightAppConfig.GenerateDefaultConfig(APP_CONFIG_FILE)
+    appConfig = json.loads(APP_CONFIG_FILE.read_bytes())
     for key in appConfig:
         app.config[key] = appConfig[key]
 
-
-def createLogger():
-    logFile = Path(os.getcwd()) / app.config["nightLightLogs"]
-    if not logFile.exists():
-        os.mkdir(logFile.parent)
-        open(logFile, 'a').close()
-    logging.basicConfig(filename=logFile, level=logging.ERROR)
-    remove_color_filter = RemoveColorFilter()
-    logging.getLogger("werkzeug").addFilter(remove_color_filter)
-    return
 
 def loadNightLightConfig():
     global CONFIG
     configPath = Path(os.getcwd())/ app.config["nightLightConfig"]
     # if path
     if not configPath.exists():
-        print("no nightlight config found creating default one ") # TODO make log
+        logger.warning("No nightlight config found.")
         CONFIG = NightLightConfig()
+        logger.info("New nightlight config created.")
         CONFIG.save(configPath)
+        logger.info(f"new nightlight config saved at {configPath}.") # TODO use custom LoggerAdapter for filenames 
         return
     CONFIG = NightLightConfig.load(configPath)
+    logger.info("Config loaded")
     
 
 @app.route("/update-settings")
@@ -159,8 +185,10 @@ def get():
         return jsonify(sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude).strftime("%H:%M:%S"))
 
 
-if __name__ == '__main__':    
+if __name__ == '__main__':
+    logger.info("Running startup.")    
     startup()
+    logger.info("startup finished.")
     MAIN_THREAD.start()
     app.run(host="0.0.0.0")
 
