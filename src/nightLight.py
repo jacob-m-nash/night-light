@@ -8,6 +8,7 @@ from logging.handlers import TimedRotatingFileHandler
 from pathlib import Path
 from nightLightAppConfig import NightLightAppConfig
 from nightLightConfig import NightLightConfig
+from lifxlan import LifxLAN
 
 import click
 
@@ -69,7 +70,7 @@ def run():
         color = [CONFIG.lightHue,CONFIG.lightSaturation,CONFIG.lightBrightness,CONFIG.lightTemperature]
         logger.debug("Turning on lights.")
         for light in CONFIG.lights: 
-            light.set_color(color,CONFIG.transitionDuration)
+            light.set_color(color,CONFIG.transitionDuration) #TODO remember prev colour/ overwrite colour?
             light.set_power("on")
         logger.debug("Turning on plugs.")
         for plug in CONFIG.plugs:
@@ -80,7 +81,7 @@ def run():
 
 app = Flask(__name__)
 logger = setupLogging()
-APP_CONFIG_FILE = Path(os.getcwd()) / "configs" /  "defaultAppConfig.json"
+APP_CONFIG_FILE = Path(os.getcwd()) / "configs" /  "defaultAppConfig.json" #TODO path combine
 CONFIG: NightLightConfig = None
 MAIN_THREAD = Thread(target=run)
 
@@ -140,9 +141,15 @@ def add():
         except Exception as e:
             logger.exception('Failed to add device.')
             return("oh no") #TODO better error handling
-        
-        
-
+    if device == "light":
+        lifx = LifxLAN()
+        devices = lifx.get_lights()
+        for d in devices:
+            if d not in CONFIG.lights:
+                logger.info("added light")
+                CONFIG.lights.append(d)
+        CONFIG.save(Path(os.getcwd())/ app.config["nightLightConfig"])
+        return(f"New light added {d.label}")
 
 def startup():
     loadAppConfigs()
@@ -182,7 +189,7 @@ def updateConfig():
 def get():
     param = request.args.get('param')
     if param == "nextsunset":
-        return jsonify(sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude).strftime("%H:%M:%S"))
+        return jsonify(sunsetCalculator.getNextSunset(CONFIG.latitude,CONFIG.longitude).strftime("%H:%M:%S")) #TODO convert to correct timezone 
 
 
 if __name__ == '__main__':

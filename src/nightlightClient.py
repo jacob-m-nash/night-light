@@ -19,14 +19,17 @@ def get(args):
 
 def turnOff():
     r = requests.get("http://127.0.0.1:5000/turnOff")
-    print(r.json())
+    print(r.json()) #TODO send all json or just text?
 
 def add (args):
     device = args[0].lower()
     if device == "plug":
         ip = args[1]
         r = requests.get(f"http://127.0.0.1:5000/add?device=plug&ipAddress={ip}")
-        print(r.json())
+        print(r.text)
+    if device == "light":
+        r = requests.get(f"http://127.0.0.1:5000/add?device=light")
+        print(r.text)
 
 # def getUserConfig():
 #     lightCount = getSettingInput("Number of lights",0)
