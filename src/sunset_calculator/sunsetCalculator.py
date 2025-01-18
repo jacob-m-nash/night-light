@@ -1,5 +1,5 @@
 import math
-import datetime
+from datetime import datetime, timedelta,time
 import calendar
 import pytz
 
@@ -14,17 +14,14 @@ def calculateSunsetTime(dateTime, latitude, longitude):
     sunsetTime = 720 - 4 * (longitude +  math.degrees(hourAngle)) - eqtime
     sunsetHour = round(sunsetTime // 60)
     sunsetMinute = round(sunsetTime % 60) 
-    if(sunsetHour not in range(0,24)):
-        print(sunsetHour)
-    if(sunsetMinute not in range(0,60)):
-        print(sunsetMinute)
-    return dateTime.combine(dateTime,datetime.time(sunsetHour,sunsetMinute),pytz.UTC)
+    return dateTime.combine(dateTime,time(sunsetHour,sunsetMinute,00),pytz.UTC)
 
-def getNextSunset(latitude,longitude):
-    currentDateTime = datetime.datetime.now(pytz.UTC)
+def getNextSunset(latitude,longitude,tomorrow: bool = False):
+    currentDateTime = datetime.now(pytz.UTC)
     sunsetTime = calculateSunsetTime(currentDateTime,latitude,longitude)
-    if(sunsetTime > currentDateTime): # if sunset time has not already passed
-        return sunsetTime
-    else:
-        tomorrowDateTime = currentDateTime + datetime.timedelta(days=1)
+    if(sunsetTime < currentDateTime or tomorrow): # if sunset time has not already passed
+        tomorrowDateTime = currentDateTime + timedelta(days=1)
         return calculateSunsetTime(tomorrowDateTime,latitude,longitude)
+    else:
+        return sunsetTime
+        

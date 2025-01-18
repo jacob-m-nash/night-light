@@ -1,0 +1,4 @@
+{
+    "nightLightConfig": "configs/defaultNightLightConfig.json",
+    "nightLightLogs": "logs/nightLightLogs.log"
+}
