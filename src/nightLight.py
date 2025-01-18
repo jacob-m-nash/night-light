@@ -70,7 +70,7 @@ def run():
         color = [CONFIG.lightHue,CONFIG.lightSaturation,CONFIG.lightBrightness,CONFIG.lightTemperature]
         logger.debug("Turning on lights.")
         for light in CONFIG.lights: 
-            light.set_color(color,CONFIG.transitionDuration) #TODO remember prev colour/ overwrite colour?
+            # light.set_color(color,CONFIG.transitionDuration) #TODO remember prev colour/ overwrite colour?
             light.set_power("on")
         logger.debug("Turning on plugs.")
         for plug in CONFIG.plugs:

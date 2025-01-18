@@ -1,11 +1,12 @@
 from lifxlan import Light
 from pathlib import Path
+from datetime import time
 import json
 import ShellyPy
 
 WARM_WHITE = [58275, 0, 65535, 3200]
 class NightLightConfig():
-    def __init__(self,lights: list = [],plugs: list = [],latitude: float = 51.5072,longitude: float = 0.1276,sunsetOffset: int = 10,lightHue: int = 58275,lightSaturation: int = 0,lightBrightness: int = 65535,lightTemperature: int = 3200,transitionDuration: int = 120) -> None:
+    def __init__(self,lights: list = [],plugs: list = [],latitude: float = 51.5072,longitude: float = 0.1276,sunsetOffset: int = 10,lightHue: int = 58275,lightSaturation: int = 0,lightBrightness: int = 65535,lightTemperature: int = 3200,transitionDuration: int = 120, autoOffTime:time = time(3,0,0)) -> None:
         # list of connected lights
         self.lights = lights
         self.plugs = plugs
@@ -21,6 +22,7 @@ class NightLightConfig():
         self.lightBrightness = lightBrightness
         self.lightTemperature = lightTemperature
         self.transitionDuration = transitionDuration 
+        self.autoOffTime = autoOffTime
 
 
     def save(self,filepath:Path):
